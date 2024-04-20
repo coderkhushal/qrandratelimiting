@@ -1,0 +1,32 @@
+const redis= require("./../redis")
+
+ const ratelimiting = async(req, res, next)=>{
+
+    // implementing 5 reuqests per 10 seconds
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress).slice(0,9)
+
+    let requests= await redis.incr(ip)
+
+    let ttl
+    if(requests==1){
+        ttl= 10 
+        await redis.expire(ip, 10 )
+    }
+    else{
+        ttl= await redis.ttl(ip)
+    }
+   
+    if(requests>5){
+        res.send(`<h1> too many attempts</h1>
+        <h2>requests: ${requests}</h2>
+            <h2>ttl : ${ttl}</h2>
+        `)
+
+    }
+    else{
+        req.requests= requests
+        req.ttl= ttl
+        next()
+    }
+}
+module.exports= ratelimiting
